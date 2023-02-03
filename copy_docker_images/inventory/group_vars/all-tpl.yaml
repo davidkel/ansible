@@ -1,0 +1,8 @@
+docker_user:
+docker_password:
+docker_login_url:
+registry: '{{ docker_login_url }}'
+image_list: ['some-image-prefix']
+base_image_version: image-postfix
+docker_image_version: 1.0
+

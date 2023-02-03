@@ -1,0 +1,43 @@
+- name: Pull docker images locally
+  hosts: localhost
+  tasks:
+  - name: login to artifactory
+    docker_login:
+      username: '{{ docker_user }}'
+      password: '{{ docker_apikey }}'
+      registry_url: '{{ docker_login_url }}'
+
+  - name: pull down the images (need to loop this)
+    ansible.builtin.docker_image:
+      name: '{{ registry }}/{{ item }}{{base_image_version}}:{{ docker_image_version }}'
+      source: pull
+      # Select platform for pulling. If not specified, will pull whatever docker prefers.
+      pull:
+        platform: amd64
+      loop: [ '{{ image_list }}' ]
+
+  - name: export the images to tar
+    ansible.builtin.docker_image:
+      name: '{{ registry }}/{{ item }}'
+      tag: '{{ docker_image_version }}'
+      archive_path: '{{ item }}.tar'
+      source: local
+      loop: [ '{{ image_list }}' ]
+
+  - name: copy tar files to remote
+    ansible.builtin.copy:
+      src: '{{ item }}.tar'
+      dest: /home/root
+      loop: [ '{{ image_list }}' ]
+
+- name: load tar files into local docker registry
+  hosts: clients
+  tasks:
+  - ansible.builtin.docker_image:
+      name: '{{ item }}'
+      tag: '{{ docker_image_version }}'
+      push: true
+      load_path: /home/root/'{{ item }}.tar'
+      source: load
+      loop: [ '{{ image_list }}' ]
+

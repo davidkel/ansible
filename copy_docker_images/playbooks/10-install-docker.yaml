@@ -1,0 +1,5 @@
+- name: Install docker
+  hosts: peers:client0
+  remote_user: root
+  roles:
+    - role: docker
