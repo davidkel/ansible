@@ -1,43 +1,58 @@
 - name: Pull docker images locally
   hosts: localhost
   tasks:
-  - name: login to artifactory
-    docker_login:
+  - name: login to docker registry
+    ansible.builtin.docker_login:
       username: '{{ docker_user }}'
-      password: '{{ docker_apikey }}'
+      password: '{{ docker_password }}'
       registry_url: '{{ docker_login_url }}'
 
-  - name: pull down the images (need to loop this)
+  - name: pull down the images
     ansible.builtin.docker_image:
-      name: '{{ registry }}/{{ item }}{{base_image_version}}:{{ docker_image_version }}'
+      name: '{{ registry }}/{{ item }}{{ image_postfix }}:{{ image_tag }}'
       source: pull
       # Select platform for pulling. If not specified, will pull whatever docker prefers.
       pull:
         platform: amd64
-      loop: [ '{{ image_list }}' ]
+    loop: '{{ image_prefix_list }}'
+
+  - name: retag the images to local
+    ansible.builtin.docker_image:
+      name: '{{ registry }}/{{ item }}{{ image_postfix }}:{{ image_tag }}'
+      repository: '{{ item }}{{ image_postfix }}:{{ image_tag }}'
+      source: local
+    loop: '{{ image_prefix_list }}'
 
   - name: export the images to tar
     ansible.builtin.docker_image:
-      name: '{{ registry }}/{{ item }}'
-      tag: '{{ docker_image_version }}'
+      name: '{{ item }}{{ image_postfix }}'
+      tag: '{{ image_tag }}'
       archive_path: '{{ item }}.tar'
       source: local
-      loop: [ '{{ image_list }}' ]
+    loop: '{{ image_prefix_list }}'
 
+- name: copy files to remote and load into local registry
+  hosts: all
+  tasks:
   - name: copy tar files to remote
     ansible.builtin.copy:
       src: '{{ item }}.tar'
-      dest: /home/root
-      loop: [ '{{ image_list }}' ]
+      dest: '/tmp/{{ item }}.tar'
+    loop: '{{ image_prefix_list }}'
 
-- name: load tar files into local docker registry
-  hosts: clients
-  tasks:
-  - ansible.builtin.docker_image:
-      name: '{{ item }}'
-      tag: '{{ docker_image_version }}'
-      push: true
-      load_path: /home/root/'{{ item }}.tar'
+  - name: load tar files into local docker registry
+    ansible.builtin.docker_image:
+      name: '{{ item }}{{ image_postfix }}'
+      tag: '{{ image_tag }}'
+      push: false
+      load_path: '/tmp/{{ item }}.tar'
       source: load
-      loop: [ '{{ image_list }}' ]
+    loop: '{{ image_prefix_list }}'
+
+- name: log out of docker registry
+  hosts: localhost
+  tasks:
+  - ansible.builtin.docker_login:
+      registry_url: '{{ docker_login_url }}'
+      state: absent
 

@@ -1,8 +1,9 @@
 docker_user:
 docker_password:
 docker_login_url:
-registry: '{{ docker_login_url }}'
-image_list: ['some-image-prefix']
-base_image_version: image-postfix
-docker_image_version: 1.0
+registry: '{{ docker_login_url }}/some-docker-path'
+image_prefixes: 'some-image-prefix,some-image-prefix2' # NO SPACES
+image_postfix: image-postfix
+image_tag: 1.0
 
+image_prefix_list: "{{ image_prefixes.split(',') }}"
